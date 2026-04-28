@@ -22,8 +22,8 @@ const float bSlope = 0.0;
 
 vec3 getVideoPixel(vec2 texcoord) {
 	vec3 YCbCr = vec3(
-		texture(plane1, texcoord)[0],
-		texture(plane2, texcoord).xy
+		texture2D(plane1, texcoord)[0],
+		texture2D(plane2, texcoord).xy
 	);
 
 	YCbCr -= offset;

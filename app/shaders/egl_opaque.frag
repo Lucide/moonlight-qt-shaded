@@ -36,7 +36,7 @@ vec3 converge(vec2 texcoord) {
 }
 
 vec3 correct(vec2 texcoord, vec3 color) {
-    vec3 corrections = curve(texture(colorMap, texcoord).rgb);
+    vec3 corrections = curve(texture2D(colorMap, texcoord).rgb);
     float min_val = min(corrections.r, min(corrections.g, corrections.b));
     return color * min_val / max(corrections, vec3(0.00001));
 }
