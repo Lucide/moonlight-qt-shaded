@@ -18,7 +18,7 @@ const float gSlope = 0.0;
 const float bSlope = 0.0;
 
 vec3 getVideoPixel(vec2 texcoord) {
-    return texture2D(uTexture, texcoord).rgb;
+    return texture(uTexture, texcoord).rgb;
 }
 
 vec3 curve(vec3 x) {
@@ -27,7 +27,7 @@ vec3 curve(vec3 x) {
 }
 
 vec3 converge(vec2 texcoord) {
-    const vec3 horizontalOffsetsNorm = vec3(rHorOffset, gHorOffset, bHorOffset) * uRCPWidth;
+    vec3 horizontalOffsetsNorm = vec3(rHorOffset, gHorOffset, bHorOffset) * uRCPWidth;
     return vec3(
         getVideoPixel(vec2(texcoord.x + horizontalOffsetsNorm.r, texcoord.y)).r,
         getVideoPixel(vec2(texcoord.x + horizontalOffsetsNorm.g, texcoord.y)).g,
@@ -36,7 +36,7 @@ vec3 converge(vec2 texcoord) {
 }
 
 vec3 correct(vec2 texcoord, vec3 color) {
-    vec3 corrections = curve(texture2D(colorMap, texcoord).rgb);
+    vec3 corrections = curve(texture(colorMap, texcoord).rgb);
     float min_val = min(corrections.r, min(corrections.g, corrections.b));
     return color * min_val / max(corrections, vec3(0.00001));
 }

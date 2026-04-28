@@ -22,8 +22,8 @@ const float bSlope = 0.0;
 
 vec3 getVideoPixel(vec2 texcoord) {
 	vec3 YCbCr = vec3(
-		texture2D(plane1, texcoord)[0],
-		texture2D(plane2, texcoord).xy
+		texture(plane1, texcoord)[0],
+		texture(plane2, texcoord).xy
 	);
 
 	YCbCr -= offset;
@@ -36,7 +36,7 @@ vec3 curve(vec3 x) {
 }
 
 vec3 converge(vec2 texcoord) {
-    const vec3 horizontalOffsetsNorm = vec3(rHorOffset, gHorOffset, bHorOffset) * uRCPWidth;
+    vec3 horizontalOffsetsNorm = vec3(rHorOffset, gHorOffset, bHorOffset) * uRCPWidth;
     return vec3(
         getVideoPixel(vec2(texcoord.x + horizontalOffsetsNorm.r, texcoord.y)).r,
         getVideoPixel(vec2(texcoord.x + horizontalOffsetsNorm.g, texcoord.y)).g,

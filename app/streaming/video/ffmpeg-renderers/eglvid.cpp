@@ -636,7 +636,7 @@ bool EGLRenderer::initialize(PDECODER_PARAMETERS params)
         glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
 
-    QImage mapImg("my-shader/map.png");
+    QImage mapImg("compensate.png");
     if (!mapImg.isNull()) {
         mapImg = mapImg.convertToFormat(QImage::Format_RGBA8888);
         glGenTextures(1, &m_MapTexture);
@@ -647,7 +647,7 @@ bool EGLRenderer::initialize(PDECODER_PARAMETERS params)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, mapImg.width(), mapImg.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, mapImg.constBits());
     } else {
-        EGL_LOG(Error, "Could not load map.png");
+        EGL_LOG(Error, "Could not load compensate.png");
     }
 
     glGenBuffers(Overlay::OverlayMax, m_OverlayVbos);
