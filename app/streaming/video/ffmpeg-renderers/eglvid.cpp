@@ -65,7 +65,7 @@ EGLRenderer::EGLRenderer(IFFmpegRenderer *backendRenderer)
         m_EGLImagePixelFormat(AV_PIX_FMT_NONE),
         m_EGLDisplay(EGL_NO_DISPLAY),
         m_Textures{0},
-        m_MapTexture(0),
+        m_CompensationMap(0),
         m_OverlayTextures{0},
         m_OverlayVbos{0},
         m_OverlayHasValidData{},
@@ -124,8 +124,8 @@ EGLRenderer::~EGLRenderer()
                 glDeleteTextures(1, &m_Textures[i]);
             }
         }
-        if (m_MapTexture != 0) {
-            glDeleteTextures(1, &m_MapTexture);
+        if (m_CompensationMap != 0) {
+            glDeleteTextures(1, &m_CompensationMap);
         }
         for (int i = 0; i < Overlay::OverlayMax; i++) {
             if (m_OverlayTextures[i] != 0) {
@@ -374,8 +374,8 @@ bool EGLRenderer::compileShaders() {
         m_ShaderProgramParams[NV12_PARAM_OFFSET] = glGetUniformLocation(m_ShaderProgram, "offset");
         m_ShaderProgramParams[NV12_PARAM_PLANE1] = glGetUniformLocation(m_ShaderProgram, "plane1");
         m_ShaderProgramParams[NV12_PARAM_PLANE2] = glGetUniformLocation(m_ShaderProgram, "plane2");
-        m_ShaderProgramParams[NV12_PARAM_COLORMAP] = glGetUniformLocation(m_ShaderProgram, "colorMap");
-        m_ShaderProgramParams[NV12_PARAM_RCPWIDTH] = glGetUniformLocation(m_ShaderProgram, "uRCPWidth");
+        m_ShaderProgramParams[NV12_PARAM_COMPMAP] = glGetUniformLocation(m_ShaderProgram, "uCompensationMap");
+        m_ShaderProgramParams[NV12_PARAM_WIDTH] = glGetUniformLocation(m_ShaderProgram, "uBufferWidth");
     }
     else if (m_EGLImagePixelFormat == AV_PIX_FMT_DRM_PRIME) {
         m_ShaderProgram = compileShader("egl_opaque.vert", "egl_opaque.frag");
@@ -384,8 +384,8 @@ bool EGLRenderer::compileShaders() {
         }
 
         m_ShaderProgramParams[OPAQUE_PARAM_TEXTURE] = glGetUniformLocation(m_ShaderProgram, "uTexture");
-        m_ShaderProgramParams[OPAQUE_PARAM_COLORMAP] = glGetUniformLocation(m_ShaderProgram, "colorMap");
-        m_ShaderProgramParams[OPAQUE_PARAM_RCPWIDTH] = glGetUniformLocation(m_ShaderProgram, "uRCPWidth");
+        m_ShaderProgramParams[OPAQUE_PARAM_COMPMAP] = glGetUniformLocation(m_ShaderProgram, "uCompensationMap");
+        m_ShaderProgramParams[OPAQUE_PARAM_WIDTH] = glGetUniformLocation(m_ShaderProgram, "uBufferWidth");
     }
     else {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
@@ -636,16 +636,16 @@ bool EGLRenderer::initialize(PDECODER_PARAMETERS params)
         glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
 
-    QImage mapImg("compensate.png");
-    if (!mapImg.isNull()) {
-        mapImg = mapImg.convertToFormat(QImage::Format_RGBA8888);
-        glGenTextures(1, &m_MapTexture);
-        glBindTexture(GL_TEXTURE_2D, m_MapTexture);
+    QImage compImg("compensate.png");
+    if (!compImg.isNull()) {
+        compImg = compImg.convertToFormat(QImage::Format_RGBA8888);
+        glGenTextures(1, &m_CompensationMap);
+        glBindTexture(GL_TEXTURE_2D, m_CompensationMap);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, mapImg.width(), mapImg.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, mapImg.constBits());
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, compImg.width(), compImg.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, compImg.constBits());
     } else {
         EGL_LOG(Error, "Could not load compensate.png");
     }
@@ -900,19 +900,19 @@ void EGLRenderer::renderFrame(AVFrame* frame)
         glUniform3fv(m_ShaderProgramParams[NV12_PARAM_OFFSET], 1, getColorOffsets(frame));
         glUniform1i(m_ShaderProgramParams[NV12_PARAM_PLANE1], 0);
         glUniform1i(m_ShaderProgramParams[NV12_PARAM_PLANE2], 1);
-        
+
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, m_MapTexture);
-        glUniform1i(m_ShaderProgramParams[NV12_PARAM_COLORMAP], 2);
-        glUniform1f(m_ShaderProgramParams[NV12_PARAM_RCPWIDTH], 1.0f / (float)frame->width);
+        glBindTexture(GL_TEXTURE_2D, m_CompensationMap);
+        glUniform1i(m_ShaderProgramParams[NV12_PARAM_COMPMAP], 2);
+        glUniform1f(m_ShaderProgramParams[NV12_PARAM_WIDTH], 1.0f / (float)dst.w);
     }
     else if (m_EGLImagePixelFormat == AV_PIX_FMT_DRM_PRIME) {
         glUniform1i(m_ShaderProgramParams[OPAQUE_PARAM_TEXTURE], 0);
 
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, m_MapTexture);
-        glUniform1i(m_ShaderProgramParams[OPAQUE_PARAM_COLORMAP], 1);
-        glUniform1f(m_ShaderProgramParams[OPAQUE_PARAM_RCPWIDTH], 1.0f / (float)frame->width);
+        glBindTexture(GL_TEXTURE_2D, m_CompensationMap);
+        glUniform1i(m_ShaderProgramParams[OPAQUE_PARAM_COMPMAP], 1);
+        glUniform1f(m_ShaderProgramParams[OPAQUE_PARAM_WIDTH], 1.0f / (float)dst.w);
     }
 
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);

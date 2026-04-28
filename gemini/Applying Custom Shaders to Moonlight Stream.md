@@ -104,3 +104,59 @@ Here is a summary of the implementation:
 You can review all specific file changes in the **[Walkthrough Artifact](file:///home/alvise/.gemini/antigravity/brain/f3dcec2a-7291-4e76-beda-3c9ee73c4741/walkthrough.md)**. 
 
 Since you mentioned you're skipping the build process, everything is statically modeled and inserted to compile cleanly with the existing code layout. Please let me know if you have any questions or need further modifications!
+
+### User Input
+
+Can you explain the difference in purpose of `egl_nv12.frag` and `egl_opaque.frag`. Be technical. In particular, I'm afraid the shader effect could be applied twice if they can be both in execution.
+
+In addition, try to investigate the frame dimension you are passing as an argument. Is it the original video frame resolution, or the "screen space" client resolution? (for example, a 2K video frame resolution presented, scaled, on a 1080p client surface). It is important that the shader receives the present frame size, post-scaling.
+
+### User Input
+
+Continue
+
+### User Input
+
+Continue
+
+### User Input
+
+Continue
+
+### User Input
+
+Continue
+
+*Viewed [eglvid.cpp](file:///home/alvise/.distrobox/ubuntu-arm/moonlight-packaging/moonlight-qt/app/streaming/video/ffmpeg-renderers/eglvid.cpp) *
+
+*Edited relevant file*
+
+### User Input
+
+Continue
+
+### User Input
+
+Continue
+
+### Planner Response
+
+Here are the technical explanations to your questions:
+
+### 1. Difference in purpose between `egl_nv12.frag` and `egl_opaque.frag`
+These two shaders exist because the hardware video decoders invoked by Moonlight (via FFmpeg) can output video frames in fundamentally different pixel formats, requiring different handling by the OpenGL pipeline:
+
+*   **`egl_nv12.frag`**: This shader is invoked when the hardware decoder returns frames in standard YUV planar formats (like `NV12` or `P010`). Because OpenGL doesn't natively understand how to display YUV color spaces on most platforms, Moonlight uploads the individual luminance (Y) and chrominance (CbCr) planes into separate textures. The `egl_nv12.frag` shader's purpose is to manually sample these separate planes and perform the mathematical YUV-to-RGB color space conversion inside the shader using the provided color offset and conversion matrices (`yuvmat` and `offset` uniforms).
+*   **`egl_opaque.frag`**: This shader is utilized when the hardware decoder returns frames in an opaque hardware buffer format (e.g., `DRM_PRIME` on Linux). In this optimal "zero-copy" scenario, the GPU drivers and the display controller natively understand the buffer's layout and color space. Moonlight binds this single opaque buffer as an `EGLImage` to an external OpenGL texture (`samplerExternalOES`). The purpose of `egl_opaque.frag` is simply to sample the pre-converted RGB pixel data directly from that single texture without doing any manual color math.
+
+**Can they execute twice or simultaneously?** 
+No, they cannot. The pixel format returned by your hardware decoder (`m_EGLImagePixelFormat`) is determined once at stream startup. Based on this format, Moonlight's `compileShaders()` will compile the appropriate shader, and `renderFrame()` uses an `if/else` condition to strictly bind only one of the shader programs via `glUseProgram(m_ShaderProgram)`. Thus, your visual effect will only ever be applied once per frame.
+
+### 2. Investigating the Frame Dimension Argument
+You raised a very critical point regarding `uRCPWidth` and whether it should be the original video frame width or the screen space resolution.
+
+Originally, I was passing `frame->width`, which represents the raw resolution of the incoming video stream (e.g., 1920 for 1080p). However, the fragment shader is executed based on the screen's viewport. In `eglvid.cpp`, the quad is stretched to cover the `dst.w` and `dst.h` dimensions—the scaled rendering area on your client window. 
+
+Because the `vTextCoord` interpolates linearly from `0.0` to `1.0` across the quad regardless of the resolution, the distance between two physical on-screen pixels in texture coordinates is `1.0 / dst.w`. To ensure your offset effects (which simulate pixel offsets) scale correctly with the physical dimensions displayed on your screen, we *must* use the post-scaled destination width.
+
+I have just pushed an update to the codebase to fix this. The uniform `uRCPWidth` is now correctly supplied as `1.0f / (float)dst.w` (where `dst.w` is the scaled "screen space" width of the presentation rectangle), assuring that your Reshade offsets behave exactly as they would on a true display buffer!

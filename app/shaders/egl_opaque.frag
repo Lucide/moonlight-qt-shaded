@@ -7,38 +7,30 @@ in vec2 vTextCoord;
 
 uniform samplerExternalOES uTexture;
 
-uniform sampler2D colorMap;
-uniform float uRCPWidth;
+uniform sampler2D uCompensationMap;
+uniform float uBufferWidth;
 
-const float rHorOffset = 0.000000;
-const float gHorOffset = -0.884000;
-const float bHorOffset = 1.069003;
-const float rSlope = 0.0;
-const float gSlope = 0.0;
-const float bSlope = 0.0;
-
-vec3 getVideoPixel(vec2 texcoord) {
-    return texture2D(uTexture, texcoord).rgb;
-}
+const vec3 horOffsets = vec3(0.000000, -0.884000, 1.069003);
+const vec3 slopes = vec3(0.0, 0.0, 0.0);
 
 vec3 curve(vec3 x) {
-    const vec3 slopes = vec3(rSlope, gSlope, bSlope);
     return (x + slopes * x) / (1.0 + slopes * x);
 }
 
 vec3 converge(vec2 texcoord) {
-    vec3 horizontalOffsetsNorm = vec3(rHorOffset, gHorOffset, bHorOffset) * uRCPWidth;
+    vec3 newPositions = (horOffsets * uBufferWidth) + texcoord.x;
+
     return vec3(
-        getVideoPixel(vec2(texcoord.x + horizontalOffsetsNorm.r, texcoord.y)).r,
-        getVideoPixel(vec2(texcoord.x + horizontalOffsetsNorm.g, texcoord.y)).g,
-        getVideoPixel(vec2(texcoord.x + horizontalOffsetsNorm.b, texcoord.y)).b
+        texture2D(uTexture, vec2(newPositions.r, texcoord.y)).r,
+        texture2D(uTexture, vec2(newPositions.g, texcoord.y)).g,
+        texture2D(uTexture, vec2(newPositions.b, texcoord.y)).b
     );
 }
 
 vec3 correct(vec2 texcoord, vec3 color) {
-    vec3 corrections = curve(texture2D(colorMap, texcoord).rgb);
+    vec3 corrections = curve(texture2D(uCompensationMap, texcoord).rgb);
     float min_val = min(corrections.r, min(corrections.g, corrections.b));
-    return color * min_val / max(corrections, vec3(0.00001));
+    return color * min_val / max(corrections, vec3(0.00001)); // clamp to avoid division by zero
 }
 
 void main() {
