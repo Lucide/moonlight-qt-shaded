@@ -18,7 +18,7 @@ const float gSlope = 0.0;
 const float bSlope = 0.0;
 
 vec3 getVideoPixel(vec2 texcoord) {
-    return texture(uTexture, texcoord).rgb;
+    return texture2D(uTexture, texcoord).rgb;
 }
 
 vec3 curve(vec3 x) {
