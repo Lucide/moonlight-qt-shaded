@@ -35,6 +35,7 @@ private:
     AVPixelFormat m_EGLImagePixelFormat;
     void *m_EGLDisplay;
     unsigned m_Textures[EGL_MAX_PLANES];
+    unsigned m_MapTexture;
     unsigned m_OverlayTextures[Overlay::OverlayMax];
     unsigned m_OverlayVbos[Overlay::OverlayMax];
     SDL_atomic_t m_OverlayHasValidData[Overlay::OverlayMax];
@@ -63,8 +64,12 @@ private:
 #define NV12_PARAM_OFFSET 1
 #define NV12_PARAM_PLANE1 2
 #define NV12_PARAM_PLANE2 3
+#define NV12_PARAM_COLORMAP 4
+#define NV12_PARAM_RCPWIDTH 5
 #define OPAQUE_PARAM_TEXTURE 0
-    int m_ShaderProgramParams[4];
+#define OPAQUE_PARAM_COLORMAP 1
+#define OPAQUE_PARAM_RCPWIDTH 2
+    int m_ShaderProgramParams[6];
 
 #define OVERLAY_PARAM_TEXTURE 0
     int m_OverlayShaderProgramParams[1];
